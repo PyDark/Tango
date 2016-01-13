@@ -95,5 +95,6 @@ if __name__ == "__main__":
 
 The example above is an rough example of a Chatango Bot that connects to the specified Chatango website, logs in, and does nothing afterwards. You should really use the **bots.TrolltangoWebSocketClient()** class as a real-world example of how you should create your bots.
 
-**Note:** Be mindful of what you name your bots global instance variables. As overwriting key variables will cause problems. Refer to class: tango.WebSocketClient to view the naming conventions of its global instance variables.
+**Note:** Be mindful of what you name your bots global instance variables. As overwriting key variables will cause problems. Refer to class: **tango.WebSocketClient** to view the naming conventions of its global instance variables.
 
+If you have any questions, please feel free to comment on this Github repository and ill respond as soon as possible.
