@@ -9,7 +9,7 @@ def main():
 
     host = "http://nba-stream.chatango.com"
     client = bots.TrolltangoWebSocketClient()
-    client.account = tango.Account(host, "moistassedgaymer", "assface")
+    client.account = tango.Account(host, "YOURCHATANGOUSERNAME", "YOURCHATANGOPASSWORD")
     client.connect(host)
 
     try:
