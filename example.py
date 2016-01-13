@@ -9,6 +9,8 @@ def main():
 
     host = "http://nba-stream.chatango.com"
     client = bots.TrolltangoWebSocketClient()
+    client.blocks_of_text = True
+    client.random_channel_switching = True
     client.account = tango.Account(host, "YOURCHATANGOUSERNAME", "YOURCHATANGOPASSWORD")
     client.connect(host)
 

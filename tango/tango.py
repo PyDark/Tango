@@ -190,7 +190,7 @@ class WebSocketClient():
         if not self._ws_connection:
             raise RuntimeError('Web socket connection is closed.')
 
-        self._ws_connection.write_message(escape.utf8(data))
+        self._ws_connection.write_message(data)
 
     def close(self):
         """Close connection.

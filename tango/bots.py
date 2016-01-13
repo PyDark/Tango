@@ -175,8 +175,8 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
 
     def generate_block_of_text(self, words=50):
         msg = ""
-        for x in xrange(DEFAULT_WORDS):
-            msg += random.choice(WORDS) + "<br/>"
+        for x in xrange(words):
+            msg += random.choice(DEFAULT_WORDS) + "<br/>"
         return msg
 
     def send_chat_message(self, channel_id, msg):
@@ -184,11 +184,11 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
         """
 
         if self.access_token:
-            #print 'bm:u{0}:{1}:{2}\r\n\x00'.format(
-            #    self.access_token,
-            #    channel_id,
-            #    msg
-            #)
+            print 'bm:u{0}:{1}:{2}\r\n\x00'.format(
+                self.access_token,
+                channel_id,
+                msg
+            )
             self.send(
                 b'bm:u{0}:{1}:{2}\r\n\x00'.format(
                     self.access_token,
@@ -252,7 +252,7 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
                 self.messages.append(
                     msg_obj
                 )
-            print msg_obj
+            #print msg_obj
 
     def on_access_token_response(self, msg):
         """Update the self.access_token whenver the server sends us a new one. (important) [required to send chat messages]
