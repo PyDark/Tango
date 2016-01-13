@@ -1,6 +1,6 @@
 # Tango
 
-> A modern, fast, headerless, object-oriented, adn scalable Chatango botting library
+> A modern, fast, headerless, object-oriented, and scalable Chatango botting library
 
 **Requirements:** Python 2.7.x, requests, tornado (web framework)
 
@@ -17,7 +17,7 @@
 
 ### Usage
 
-> To begin, the tango module (tango.py), contains the base class for building your Chatango bots. Think of it as the protocol that you build your bots upon. The bots module (bots.py), contains a fully-featured Chatango bot that you can use or get examples from. This bot is called *TrolltangoWebSocketClient* and works out of the box. Run the example.py file to see it in action!
+> To begin, the tango module (tango.py), contains the base class for building your Chatango bots. Think of it as the protocol that you build your bots upon. The bots module (bots.py), contains a fully-featured Chatango bot that you can use or get examples from. This bot is called *TrolltangoWebSocketClient* and works out of the box. Run the *example.py* file to see it in action!
 
 **Building new bots:**
 
@@ -70,9 +70,6 @@ class MyBot(tango.WebSocketClient):
 
 
 def main():
-    """Starts up our test Chatango Bot (class: bots.TrolltangoWebSocketClient).
-    """
-
     # Direct http URL address to target Chatango website (important: must be in the format of "http://target.chatango.com").
     # You can get the direct http URL address by navigating to a website that contains a Chatango chat room, and clicking on # the widgets header area. It should redirect you to the direct http URL address for that chatroom. When in doubt,
     # use the following example: suppose you visit http://website.com. You notice theres a Chatango chat room there. 

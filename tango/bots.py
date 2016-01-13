@@ -184,11 +184,11 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
         """
 
         if self.access_token:
-            print 'bm:u{0}:{1}:{2}\r\n\x00'.format(
-                self.access_token,
-                channel_id,
-                msg
-            )
+            #print 'bm:u{0}:{1}:{2}\r\n\x00'.format(
+            #    self.access_token,
+            #    channel_id,
+            #    msg
+            #)
             self.send(
                 b'bm:u{0}:{1}:{2}\r\n\x00'.format(
                     self.access_token,
@@ -230,7 +230,7 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
             if channels.has_key(key):
                 new_value = channels[key] + 1
                 channels[key] = new_value
-        print channels
+        #print channels
         return max(channels.iteritems(), key=operator.itemgetter(1))[0]
 
     def on_chat_response(self, msg):
@@ -252,7 +252,7 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
                 self.messages.append(
                     msg_obj
                 )
-            #print msg_obj
+            print msg_obj
 
     def on_access_token_response(self, msg):
         """Update the self.access_token whenver the server sends us a new one. (important) [required to send chat messages]
