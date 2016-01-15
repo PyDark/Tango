@@ -96,7 +96,7 @@ class Message(object):
             self.channel = dissected[5]
             self.text = dissected[6]
             self.valid = True
-        except ValueError:
+        except IndexError:
             pass
     def __repr__(self):
         return "{0} ({1}): {2}".format(

@@ -98,14 +98,21 @@ DEFAULT_PHRASES = [
     "I can clap my ass cheeks for you baby boo",
     "I'm jerking off to your messages, keep them coming baby",
     "I just came on my monitor, right on your profile picture",
-    "Get the Trolltango Unchained (Python) script (source code) at: pastie[dot]org/10684698 [Know how to run Python scripts before downloading this]",
-    "Get a copy of this new 'Trolltango Unchained' bot at hackforums[dot]net (The difference is that Trolltango Unchained is headerless, smarter, faster, switches between channels (red, blue and white) based on whatever channel is more active, and you can run more than one bot on your PC! (requires you to make a new account per bot instance). So if you have 5 bots running on your computer, make sure that each one is using a unique individual account.",
+    "Get the Trolltango Unchained (Python) script (source code) at: github.com/PyDark/Tango [know how to run Python scripts before downloading this]",
+    #"Get a copy of this new 'Trolltango Unchained' bot at UNDEFINED (The difference is that Trolltango Unchained is headerless, smarter, faster, switches between channels (red, blue and white) based on whatever channel is more active, and you can run more than one bot on your PC! (requires you to make a new account per bot instance). So if you have 5 bots running on your computer, make sure that each one is using a unique individual account.",
     "Get a copy of the old 'Trolltango' bot at hackforums[dot]net/showthread[dot]php?tid=5126827 (This is the old version that limits you to 1 bot per computer)",
 ]
 
 
 class TrolltangoWebSocketClient(tango.WebSocketClient):
     """An example Chatango Bot built on-top of the base tango.WebSocketClient class.
+
+    Behavior: This bot spits gay words and phrases onto the target Chatango chat room (website).
+    It also has the ability to switch channels (red, blue, white) if it detects activity in 
+    other channels or if the global instance variable self.random_channel_switching (boolean) is set to True
+    the bot randomly switches between the aforementioned channels.
+    It also reponses to the last person to send a message in the Chatango chat room (website) (if any).
+    The bot does NOT repond to itself.
     """
 
     def __init__(self):
@@ -117,6 +124,7 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
             "i": self.on_chat_response,
             "b": self.on_chat_response,
             "n": self.on_access_token_response,
+            "msglexceeded": self.on_msglength_exceeded_response,
         }
         # server version
         self.version = None
@@ -126,6 +134,11 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
         self.messages = []
         # maximum allowed messages to be stored in the list self.messages
         self.max_messages = 300
+        # stores the index of the last used phrase in the DEFAULT_PHRASES list
+        self.last_phrase_used = None
+        # should the bot remove the self.last_phrase_used if it exceeds the maximum chat message length? 
+        # (use if you keep getting msglexeeded responses from the Chatango WebSocket server)
+        self.remove_phrases_that_exceed_length = False
         # should the bot spam blocks of text?
         self.blocks_of_text = False
         # should the bot just randomly switch in between the red, blue and white channels? 
@@ -152,6 +165,7 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
 
     def generate_smart_message(self):
         phrase = random.choice(DEFAULT_PHRASES)
+        self.last_phrase_used = phrase
         # If we have received more than 0 messages that were not sent out by this bot
         if len(self.messages) > 0:
             # Get the last message (that wasn't send out by this bot)
@@ -233,6 +247,25 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
         #print channels
         return max(channels.iteritems(), key=operator.itemgetter(1))[0]
 
+    def on_msglength_exceeded_response(self, msg):
+        """We attempted to send a message that exceeded the maximum length defined by the parameter 'msg'.
+        Remove the last used phrase from the DEFAULT_PHRASES list. 
+        """
+
+        global DEFAULT_PHRASES
+        try:
+            limit = int(msg)
+        except ValueError:
+            limit = None
+        if limit:
+            print "[!] The last message sent exceeded the maximum chat message length of {0}".format(
+                limit
+            )
+            if self.remove_phrases_that_exceed_length:
+                DEFAULT_PHRASES.remove(self.last_phrase_used)
+                print "[!] Removed a phrase for exceeding the maximum chat message length"
+
+
     def on_chat_response(self, msg):
         """Process chat messages received from Chatango WebSocket server.
         """
@@ -293,3 +326,48 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
 
     def on_connection_error(self, exception):
         print('[!] Connection error: %s', exception)
+
+
+class TrolltangoEchoClient(TrolltangoWebSocketClient):
+    """An example Chatango Bot built on-top of the existing TrolltangoWebSocketClient bot class.
+
+    Behavior: This bot copies the last message received in the Chatango chat room (website)
+    and echo's it back to the person whom sent it. If nobody is speaking, the bot stays silent
+    until someone sends a message. 
+    """
+
+    def __init__(self):
+        TrolltangoWebSocketClient.__init__(self)
+
+        # TO DO
+
+
+class TrolltangoQuizClient(tango.WebSocketClient):
+    """An example Chatango Bot built on-top of the existing TrolltangoWebSocketClient bot class.
+
+    Behavior: This bot selects a random Question() object from the global QUIZ_QUESTIONS list
+    and asks the question in the Chatango chat room (website). When someone sends a message,
+    the bot reads (parses) the response, and determines if it is the correct answer or wrong
+    answer; then the bot sends a message stating if the answer is 'correct' or 'incorrect'.
+    """
+
+    def __init__(self):
+        TrolltangoWebSocketClient.__init__(self)
+
+        # TO DO
+
+
+class TrolltangoRacismDetectorClient(tango.WebSocketClient):
+    """An example Chatango Bot built on-top of the existing TrolltangoWebSocketClient bot class.
+
+    Behavior: This bot remains silent but continuously reads (parses) the chat messages until
+    it detects a racist term send by another user. Once it detects racism, it will begin
+    flooding the chat room with random phrases from the global STOP_RACISM list. The bot will
+    continue reading (parsing) the chat messages, until someone says "!STOPBOT". If the command
+    is read from any chat message. The bot will stop spamming and repeat the sequence.
+    """
+
+    def __init__(self):
+        TrolltangoWebSocketClient.__init__(self)
+
+        # TO DO
