@@ -11,11 +11,13 @@ import tango
 # for use in Session() class
 import requests
 # built-ins
+import collections
 import functools
 import operator
 import random
 import json
 import time
+import re
 
 
 __author__ = "Frowdo"
@@ -25,6 +27,8 @@ Feel free to modify the file itself, inherit from it, or build a new bot by
 copying its code. Also, please take a loook at example.py on how to run a bot
 once you've created one."
 """
+
+TAG_RE = re.compile(r'<[^>]+>')
 
 # List of words the bot will spam
 DEFAULT_WORDS = [
@@ -98,9 +102,8 @@ DEFAULT_PHRASES = [
     "I can clap my ass cheeks for you baby boo",
     "I'm jerking off to your messages, keep them coming baby",
     "I just came on my monitor, right on your profile picture",
-    "Get the Trolltango Unchained (Python) script (source code) at: github.com/PyDark/Tango [know how to run Python scripts before downloading this]",
+    "Get the Trolltango Unchained (Python) script (source code) at: github[dot]com/PyDark/Tango [know how to run Python scripts before downloading this]",
     #"Get a copy of this new 'Trolltango Unchained' bot at UNDEFINED (The difference is that Trolltango Unchained is headerless, smarter, faster, switches between channels (red, blue and white) based on whatever channel is more active, and you can run more than one bot on your PC! (requires you to make a new account per bot instance). So if you have 5 bots running on your computer, make sure that each one is using a unique individual account.",
-    "Get a copy of the old 'Trolltango' bot at hackforums[dot]net/showthread[dot]php?tid=5126827 (This is the old version that limits you to 1 bot per computer)",
 ]
 
 QUIZ_WORDS = [
@@ -166,7 +169,19 @@ QUIZ_QUESTIONS = [
     ("Who's the best Point Guard in the Eastern Conference?", "Kyrie Irving"),
     ("Who was labeled Mr. Unreliable a couple years back in the Playoffs?", "Kevin Durant"),
     ("Who's more clutch? (Kevin Durant, LeBron James, Kobe Bryant, David Blatt)", "David Blatt"),
+    ("In what year was the Declaration of Independence written in the United States of America?", "1776"),
+    ("Who was the 3rd president of the United States of America?", "Thomas Jefferson"),
+    ("What is the capital of Virginia?", "Richmond"),
+    ("In what year did Martin Luther King die?", "1968"),
+    ("Is hellfire (Hell) a Biblical teaching?", "no"),
+    ("Is the trinity a Biblical teaching?", "no"),
 ]
+
+Command = collections.namedtuple("Command", "name func parameters username")
+
+
+def remove_tags(text):
+    return TAG_RE.sub('', text)
 
 
 class Question(object):
@@ -452,8 +467,341 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
 
     def __init__(self):
         tango.WebSocketClient.__init__(self)
+        # command: (parameters expected, function to call)
+        self.commands = {
+            "@repeat": self.cmd_repeat_msg_to_user,
+            "@shout": self.cmd_shout_message,
+            "@flirt": self.cmd_flirt_with_user,
+            "@stop": self.cmd_stop_action,
+            "@ask": self.cmd_ask_user,
+            "@imitate": self.cmd_imitate_user,
+            "@bot": self.cmd_display_commands,
+            "@teach", self.cmd_teach_bot,
+        }
+        self.headers = {
+            "v": self.on_version_response,
+            "ok": self.on_auth_response,
+            "i": self.on_chat_response,
+            "b": self.on_chat_response,
+            "n": self.on_access_token_response,
+            "msglexceeded": self.on_msglength_exceeded_response,
+            "u": self.on_player_joined_chatroom,
+        }
+        # server version
+        self.version = None
+        # are we logged in?
+        self.logged_in = False
+        # list of chat messages received from the server
+        self.messages = []
+        # maximum allowed messages to be stored in the list self.messages
+        self.max_messages = 300
+        # should the bot remove the self.last_phrase_used if it exceeds the maximum chat message length? 
+        # (use if you keep getting msglexeeded responses from the Chatango WebSocket server)
+        self.remove_phrases_that_exceed_length = False
+        # last command we received
+        self.current_command = None
+        # returned from server (used to determine if a message is too long)
+        self.chat_length_limit = 850 # default value
+        # current person we are imitating
+        self.person_imitating = None
+        # last message received from a user we are imitating
+        self.last_message = None
 
-        # TO DO
+    def get_random_channel(self):
+        """Return a random channel to send our chat message.
+        """
+
+        return random.choice([0, 256, 2048])
+
+    def stop_bot_now(self):
+        self.current_command = None
+        self.last_message = None
+        self.person_imitating = None
+
+   def cmd_teach_bot(self, params):
+        global QUIZ_WORDS
+        global DEFAULT_PHRASES
+
+        if len(params) == 2:
+            # what are we teaching the bot
+            subject = params[0]
+            what = params[1]
+            channel_id = self.get_random_channel()
+            # teach the bot a new word
+            if subject == "word":
+                what = what[:20]
+                QUIZ_WORDS.append(what)
+                msg = self.generate_block_of_text()
+                msg += "<br/><br/><b>I learned a new word!</b><br/><br/><i>{0}</i>".format(
+                    what
+                )
+            # teach the bot a new flirty sentence
+            elif subject == "sentence":
+                what = what[:300]
+                DEFAULT_PHRASES.append(what)
+                msg = self.generate_block_of_text()
+                msg += "<br/><br/><b>I learned a new flirty sentence!</b><br/><br/><i>{0}</i>".format(
+                    what
+                )
+
+    def cmd_imitate_user(self, params):
+
+        if len(params) >= 1:
+            self.person_imitating = params[0]
+
+        if self.last_message:
+            channel_id = self.get_random_channel()
+            msg = self.generate_block_of_text()
+            msg += "<br/><br/>@{0} {1}".format(
+                self.last_message.username,
+                self.last_message.text
+            )
+            self.send_chat_message(channel_id, msg)
+
+    def cmd_display_commands(self, params):
+        """Display the currently available bot commands on the Chatango chat room (website).
+        """
+        
+        if self.current_command:
+            channel_id = self.get_random_channel()
+            msg = self.generate_block_of_text()
+            msg += "<br/><br/><br/>"
+            msg += "The <u>Commando bot</u> is running in the background. Available commands:<br/><br/>@bot:about (Displays available commands)<br/>@imitate:username (Echo's every message 'username' sends in the chat room back to 'username')<br/>@ask:username:question (Ask 'username' the 'question' once)<br/>@shout:msg (Shouts the message in the chat room once)<br/>@stop:now (Stop the bot immediately)<br/>@flirt:username (Send the 'username' a flirty message)<br/>@repeat:username:msg (Repeat the given 'msg' to the 'username' forever)"
+            self.send_chat_message(channel_id, msg)
+            self.stop_bot_now()
+
+    def cmd_repeat_msg_to_user(self, params):
+        """This command repeats the given message to the target user endlessly (or until stopped with the @stop command).
+        """
+
+        if len(params) > 1:
+            user = params[0]
+            sentence = params[1]
+            channel_id = self.get_random_channel()
+            msg = self.generate_block_of_text()
+            msg += "<br/><br/>@{0}, {1}".format(
+                user,
+                sentence
+            )
+            self.send_chat_message(channel_id, msg)
+
+    def cmd_shout_message(self, params):
+        """This command shouts the given message on the chatroom once.
+        """
+
+        if len(params) >= 0:
+            channel_id = self.get_random_channel()
+            msg = self.generate_block_of_text()
+            msg += "<br/><br/><b>{0}</b>".format(
+                params[0]
+            )
+            self.send_chat_message(channel_id, msg)
+        self.stop_bot_now()
+
+    def cmd_flirt_with_user(self, params):
+        """This command sends the target user a random gay comment.
+        """
+        if len(params) >= 1:
+            user = params[0]
+            phrase = random.choice(DEFAULT_PHRASES)
+            channel_id = self.get_random_channel()
+            msg = self.generate_block_of_text()
+            msg += "<br/><br/>"
+            msg += "@{0}, {1}".format(
+                user,
+                phrase
+            )
+            self.send_chat_message(channel_id, msg)
+        
+
+    def cmd_ask_user(self, params):
+        """This command asks the target users the given question.
+        """
+
+        if len(params) >= 2:
+            user = params[0]
+            question = params[1]
+            channel_id = self.get_random_channel()
+            msg = self.generate_block_of_text()
+            msg += "<br/><br/>"
+            msg += "@{0}, {1}?".format(
+                user,
+                question
+            )
+            self.send_chat_message(channel_id, msg)
+        self.stop_bot_now()
+
+    def cmd_stop_action(self, params):
+        """This command instructs the bot to stop its current command (if any).
+        """
+ 
+        #if self.current_command:
+            #channel_id = self.get_random_channel()
+            #msg = self.generate_block_of_text()
+            #msg += "<br/><br/><b>[!] Bot Stopped!</b>"
+            #self.send_chat_message(channel_id, msg)
+            #self.stop_bot_now()
+        #else:
+            #print "[!] Bot not running a command (CANT STOP)"
+        self.stop_bot_now()
+
+    def check_commands(self):
+        """Get the last received command.
+        Check if the command is valid, if so, call the command.
+        """
+
+        # message to send out
+        msg = self.generate_block_of_text()
+        # select a random channel to speak on
+        channel_id = self.get_random_channel()
+        # if we've received a command
+        if self.current_command:
+            self.current_command.func(self.current_command.parameters)
+        self.create_planned_timeout(5, self.check_commands)
+
+    def on_player_joined_chatroom(self, msg):
+
+        pass
+
+    def on_chat_response(self, msg):
+        """Process chat messages received from Chatango WebSocket server.
+        """
+
+        msg = "i:" + msg
+        msg_obj = tango.Message()
+        msg_obj.parse(remove_tags(msg))
+        # don't read (parse) messages sent by the bot
+        if msg_obj.valid and msg_obj.username != self.account.sid:
+            if self.person_imitating:
+                if msg_obj.username == self.person_imitating:
+                    self.last_message = msg_obj
+            self.parse_message(msg_obj)
+        print msg_obj
+
+    def parse_message(self, msg_obj):
+        # check if the answer to the current question is in the chat message
+        parts = msg_obj.text.split(":")
+        if len(parts) > 1:
+            if self.commands.has_key(parts[0].lower()):      
+                try:
+                    # create a new command
+                    # self.current_command = Command(name, func, parameters, username)
+                    self.current_command = Command(parts[0].lower(), self.commands[parts[0].lower()], parts[1:], msg_obj.username)
+                    print "[!] Received command {0}, executing with parameters: {1}, called by {2}".format(
+                        parts[0].lower(),
+                        ",".join(parts[1:]),
+                        msg_obj.username
+                    )
+                except:
+                    print "[!] Could not find a handle for the command: {0}".format(
+                        parts[0].lower()
+                    )
+            else:
+                print "[$] No command handler for {0}".format(
+                    parts[0].lower()
+                )
+
+
+    def generate_block_of_text(self, words=30):
+        msg = ""
+        for x in xrange(words):
+            msg += random.choice(QUIZ_WORDS) + "<br/>"
+        return msg
+
+    def send_chat_message(self, channel_id, msg):
+        """Attempt to send a chat message to the Chatango WebSocket server.
+        """
+
+        if self.access_token:
+            #print 'bm:u{0}:{1}:{2}\r\n\x00'.format(
+            #    self.access_token,
+            #    channel_id,
+            #    msg
+            #)
+            payload = b'bm:u{0}:{1}:{2}\r\n\x00'.format(
+                self.access_token,
+                channel_id,
+                msg
+            )
+            if len(payload) >= self.chat_length_limit:
+                difference = len(payload) - self.chat_length_limit
+                offset = self.chat_length_limit-(difference-3)
+                payload = b'bm:u{0}:{1}:{2}\r\n\x00'.format(
+                    self.access_token,
+                    channel_id,
+                    msg[:offset]
+                )
+            self.send(payload)
+            print "[!] Sent message successfully."
+        else:
+            raise ValueError, "You must parse the access token from the server in order to send a chat message! Look at bots.TrolltangoWebSocketClient() for an example."
+
+    def send_initial_data(self):
+        """Send version (v) request and login (bauth) request to Chatango WebSocket server.
+        """
+
+        if self.host and self.uid and self.account:
+            self.send(b'v\r\n\x00')
+            self.send(
+                b'bauth:{0}:{1}:{2}:{3}\r\n\x00'.format(
+                    self.host,
+                    self.uid,
+                    self.account.sid,
+                    self.account.pwd
+                )
+            )
+        else:
+            print "[!] Could not send initial data because self.host or self.uid or self.account is None"
+
+    def on_msglength_exceeded_response(self, msg):
+        """We attempted to send a message that exceeded the maximum length defined by the parameter 'msg'.
+        Remove the last used phrase from the DEFAULT_PHRASES list. 
+        """
+
+        self.chat_length_limit = int(msg)
+        print "[!] The last message sent exceeded the maximum chat message length of {0}".format(
+            msg
+        )
+
+    def on_access_token_response(self, msg):
+        """Update the self.access_token whenver the server sends us a new one. (important) [required to send chat messages]
+        """
+
+        self.access_token = msg
+        print "[!] Access token updated:", msg
+
+    def on_version_response(self, msg):
+        self.version = msg
+        print "[!] Version verified as {version}".format(
+            version=self.version,
+        )
+
+    def on_auth_response(self, msg):
+        print "[!] Received auth response:", msg
+        self.create_planned_timeout(5, self.check_commands)
+
+    def on_message(self, header, msg):
+        if self.headers.has_key(header):
+            f = self.headers[header]
+            f(msg)
+        else:
+            print "[!] Could not parse the packet: {0}:{1}".format(
+                header,
+                msg
+            )
+
+    def on_unrecognized_message(self, msg):
+        print "[!] Received server message:", repr(msg)
+
+    def on_connection_success(self):
+        print('[!] Connected!')
+        self.send_initial_data()
+
+    def on_connection_close(self):
+        print('[!] Connection closed!')
+
+    def on_connection_error(self, exception):
+        print('[!] Connection error: %s', exception)
 
 
 class TrolltangoQuizClient(tango.WebSocketClient):
@@ -467,9 +815,9 @@ class TrolltangoQuizClient(tango.WebSocketClient):
 
     def __init__(self):
         tango.WebSocketClient.__init__(self)
-        self.correct_template = "<br/><br/><br/><br/>[POP Quiz Bot]<br/><br/>[?] {1} answered the question: '{0}' correctly!<br/><br/>[!] Winner: {1}<br/><br/>"
-        self.template = "<br/><br/><br/><br/>[POP Quiz Bot]<br/><br/>[?] Current question: {0}<br/><br/>[!] Tries left: {1}<br/><br/>"
-        self.expired_template = "<br/><br/><br/><br/>[POP Quiz Bot]<br/><br/>[?] Current question: {0}<br/><br/>[!] Question expired! <br/><br/>[#] The correct answer was: '{1}'. Better luck next time.<br/><br/>"
+        self.correct_template = "<br/><br/><br/><br/><b>[POP Quiz Bot]</b><br/><br/><b>{1}</b> answered the question: <i>'{0}'</i> correctly!<br/><br/>[!] Winner: {1}<br/><br/><b>Highest scorer:</b> {2} <i>({3} point(s)}</i>"
+        self.template = "<br/><br/><br/><br/><b>[POP Quiz Bot]</b><br/><br/>[?] <b>Current question:</b> {0}<br/><br/>[!] <b>Tries left:</b> {1}<br/><br/>"
+        self.expired_template = "<br/><br/><br/><br/><b>[POP Quiz Bot]</b><br/><br/>[?] <b>Current question:</b> {0}<br/><br/>[!] <b>Question expired!</b> <br/><br/>[#] The correct answer was: <i>'{1}'</i>. Better luck next time.<br/><br/>"
         self.headers = {
             "v": self.on_version_response,
             "ok": self.on_auth_response,
@@ -491,11 +839,10 @@ class TrolltangoQuizClient(tango.WebSocketClient):
         self.remove_phrases_that_exceed_length = False
         #
         self.current_question = None
-        # dictionary containing list of usernames and their quiz scores (questions answered correctly)
+        # dictionary containing list of usernames and their quiz scores (questions answered correctly) 
         self.score = {}
-        # delete global variables we are not going to use
-        #del self.blocks_of_text
-        #del self.random_channel_switching
+        # sends less messages, thus, this instructs the bot not to spam the chat room
+        self.silent_mode = False
 
     def ask(self):
         """Ask a question OR if a question has already been asked.
@@ -513,9 +860,13 @@ class TrolltangoQuizClient(tango.WebSocketClient):
 
         # if the question has been answered correctly
         if self.current_question.answered_correctly():
+            self.update_scores()
+            highest_scorer = self.get_highest_score()
             msg += self.correct_template.format(
                 self.current_question.question,
                 self.current_question.answered_by,
+                highest_scorer[0],
+                highest_scorer[1]
             )
             self.send_chat_message(channel_id, msg)
             # create a new question
@@ -534,13 +885,23 @@ class TrolltangoQuizClient(tango.WebSocketClient):
                 self.create_new_question()
             # if the question has NOT expired
             else:
-                # send current state of question
                 msg += self.template.format(
                     self.current_question.question,
                     self.current_question.available_tries(),
                 )
                 self.send_chat_message(channel_id, msg)
         self.create_planned_timeout(5, self.ask)
+
+    def update_scores(self):
+        if self.score.has_key(self.current_question.answered_by):
+            next_value = self.score[self.current_question.answered_by] + 1
+            self.score[self.current_question.answered_by] = next_value
+        else:
+            self.score[self.current_question.answered_by] = 1
+
+    def get_highest_score(self):
+        sorted_scores = sorted(self.score.items(), key=operator.itemgetter(1))
+        return sorted_scores[-1]
 
     def create_new_question(self):
         question_tuple = random.choice(QUIZ_QUESTIONS)
