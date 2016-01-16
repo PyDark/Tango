@@ -78,6 +78,27 @@ DEFAULT_WORDS = [
     "WET"
 ]
 
+# List of 'normal' (non-gay) phrases our Quiz bot will mention when receiving a @talkto command
+NORMAL_PHRASES = [
+    "I love putting peanut butter on my nuts and letting my dog lick it off",
+    "Kobe is the 2nd G.O.A.T. Would you not agree?",
+    "James Harden, more like James Hardon",
+    "I have a big poster of NSYNC in my bedroom",
+    "Channing Tatum has a nice ass, would you agree?",
+    "I wouldn't consider myself a metrosexual hipster",
+    "I don't know who i like more, The Rock or John Cena",
+    "I think Will Ferrel is the funniest white comedian",
+    "Chris Tucker needs to star in more comedies, like wtf dude?",
+    "Shaq was overrated, i think Howard is better",
+    "Dwight Howard is easily top 3 best centers in the league",
+    "Jimmy Butler looks like he has a tight ass",
+    "I'd pay lots of money to fuck Nicki Minaj's asshole",
+    "I don't know why you are into men",
+    "Stop sending me nudes",
+    "Quit pming me dick pics man",
+    "I already told you dude, i'm not into dudes, stop asking",
+]
+
 # List of phrases the bot will mention
 DEFAULT_PHRASES = [
     "I really wish i met you so i could bend you over and drill your hairy asshole",
@@ -102,7 +123,6 @@ DEFAULT_PHRASES = [
     "I can clap my ass cheeks for you baby boo",
     "I'm jerking off to your messages, keep them coming baby",
     "I just came on my monitor, right on your profile picture",
-    "Get the Trolltango Unchained (Python) script (source code) at: github[dot]com/PyDark/Tango [know how to run Python scripts before downloading this]",
     #"Get a copy of this new 'Trolltango Unchained' bot at UNDEFINED (The difference is that Trolltango Unchained is headerless, smarter, faster, switches between channels (red, blue and white) based on whatever channel is more active, and you can run more than one bot on your PC! (requires you to make a new account per bot instance). So if you have 5 bots running on your computer, make sure that each one is using a unique individual account.",
 ]
 
@@ -476,7 +496,9 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
             "@ask": self.cmd_ask_user,
             "@imitate": self.cmd_imitate_user,
             "@bot": self.cmd_display_commands,
-            "@teach", self.cmd_teach_bot,
+            "@teach": self.cmd_teach_bot,
+            "@talkto": self.cmd_talk_to,
+            "@askquestion": self.cmd_ask_question,
         }
         self.headers = {
             "v": self.on_version_response,
@@ -498,6 +520,8 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         # should the bot remove the self.last_phrase_used if it exceeds the maximum chat message length? 
         # (use if you keep getting msglexeeded responses from the Chatango WebSocket server)
         self.remove_phrases_that_exceed_length = False
+        # show we display the available chat commands in the chat room directly (inline)? (Warning: You are limited to 850 characters by the Chatango websocket server)
+        self.display_inline_chat_commands = False
         # last command we received
         self.current_command = None
         # returned from server (used to determine if a message is too long)
@@ -514,11 +538,39 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         return random.choice([0, 256, 2048])
 
     def stop_bot_now(self):
+        """Stop (prevent) the bot from looping forever.
+        Stops bot from executing the last received command over and over again.
+        In other words, this function limits bot commandments to only run once per command received.
+        """
+
         self.current_command = None
         self.last_message = None
         self.person_imitating = None
 
-   def cmd_teach_bot(self, params):
+    def cmd_ask_question(self, params):
+        """Command the bot to ask a question (quiz).
+        """
+
+        pass
+
+    def cmd_talk_to(self, params):
+        """The bot begins to talk randomly to the specified username.
+        """
+
+        if len(params) == 1:
+            user = params[0]
+            sentence = random.choice(NORMAL_PHRASES)
+            channel_id = self.get_random_channel()
+            msg = "@{0}, {1}".format(
+                user,
+                sentence
+            )
+            self.send_chat_message(channel_id, msg)
+
+    def cmd_teach_bot(self, params):
+        """Teach the bot a new phrase or new words.
+        """
+
         global QUIZ_WORDS
         global DEFAULT_PHRASES
 
@@ -529,22 +581,38 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
             channel_id = self.get_random_channel()
             # teach the bot a new word
             if subject == "word":
-                what = what[:20]
-                QUIZ_WORDS.append(what)
-                msg = self.generate_block_of_text()
-                msg += "<br/><br/><b>I learned a new word!</b><br/><br/><i>{0}</i>".format(
-                    what
-                )
+                if len(what) >= 3:
+                    what = what[:20]
+                    if QUIZ_WORDS.count(what) == 0:
+                        QUIZ_WORDS.append(what)
+                    msg = self.generate_block_of_text()
+                    msg += "<br/><br/><b>I learned a new word!</b><br/><br/><i>{0}</i>".format(
+                        what
+                    )
+                else:
+                    msg = self.generate_block_of_text()
+                    msg += "<br/><br/><br/><b>You must enter a word greater than 3 characters (letters) long</b>"
+                self.send_chat_message(channel_id, msg)
             # teach the bot a new flirty sentence
             elif subject == "sentence":
-                what = what[:300]
-                DEFAULT_PHRASES.append(what)
-                msg = self.generate_block_of_text()
-                msg += "<br/><br/><b>I learned a new flirty sentence!</b><br/><br/><i>{0}</i>".format(
-                    what
-                )
+                if len(what) >= 10:
+                    what = what[:300]
+                    if DEFAULT_PHRASES.count(what) == 0:                        
+                        DEFAULT_PHRASES.append(what)
+                    msg = self.generate_block_of_text()
+                    msg += "<br/><br/><b>I learned a new flirty sentence!</b><br/><br/><i>{0}</i>".format(
+                        what
+                    )
+                else:
+                    msg = self.generate_block_of_text()
+                    msg += "<br/><br/><br/><b>You must enter a sentence greater than 10 characters (letters) long</b>"
+                self.send_chat_message(channel_id, msg)
+            self.stop_bot_now()
 
     def cmd_imitate_user(self, params):
+        """The bot imitates (or copies) every message the self.person_imitating user sends
+        in the chatroom forever (or until stopped).
+        """
 
         if len(params) >= 1:
             self.person_imitating = params[0]
@@ -564,9 +632,13 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         
         if self.current_command:
             channel_id = self.get_random_channel()
-            msg = self.generate_block_of_text()
-            msg += "<br/><br/><br/>"
-            msg += "The <u>Commando bot</u> is running in the background. Available commands:<br/><br/>@bot:about (Displays available commands)<br/>@imitate:username (Echo's every message 'username' sends in the chat room back to 'username')<br/>@ask:username:question (Ask 'username' the 'question' once)<br/>@shout:msg (Shouts the message in the chat room once)<br/>@stop:now (Stop the bot immediately)<br/>@flirt:username (Send the 'username' a flirty message)<br/>@repeat:username:msg (Repeat the given 'msg' to the 'username' forever)"
+            msg = self.generate_block_of_text(words=15)
+            if self.display_inline_chat_commands:
+                msg += "<br/><br/><br/>"
+                msg += "The <u>Commando bot</u> is running in the background. Available commands:<br/><br/>@bot:about (Displays available commands)<br/>@teach:word:yourword (Teach the bot a new word)<br/>@teach:sentence:yoursentence (Teach the bot a new flirty sentence)<br/>@talkto:username (instruct the bot to speak to username; without spamming random words)<br/>@imitate:username (Echo's every message 'username' sends in the chat room back to 'username')<br/>@ask:username:question (Ask 'username' the 'question' once)<br/>@shout:msg (Shouts the message in the chat room once)<br/>@stop:now (Stop the bot immediately)<br/>@flirt:username (Send the 'username' a flirty message forever)<br/>@repeat:username:msg (Repeat the given 'msg' to the 'username' forever)"
+            else:
+                msg += "<br/><br/><br/>"
+                msg += "<b>The bot is running silently in the background.</b><br/><br/>View the available <u>Commando Bot</u> commands at <b>www[dot]justpaste[dot]it/qj5q</b><br/><br/><b>Hint:</> Replace [dot] with an actual period (.)"    
             self.send_chat_message(channel_id, msg)
             self.stop_bot_now()
 
@@ -660,6 +732,8 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         self.create_planned_timeout(5, self.check_commands)
 
     def on_player_joined_chatroom(self, msg):
+        """Does nothing
+        """
 
         pass
 
@@ -671,7 +745,7 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         msg_obj = tango.Message()
         msg_obj.parse(remove_tags(msg))
         # don't read (parse) messages sent by the bot
-        if msg_obj.valid and msg_obj.username != self.account.sid:
+        if msg_obj.valid:# and msg_obj.username != self.account.sid:
             if self.person_imitating:
                 if msg_obj.username == self.person_imitating:
                     self.last_message = msg_obj
@@ -679,6 +753,10 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         print msg_obj
 
     def parse_message(self, msg_obj):
+        """Check if the received message is a valid bot command.
+        If so, parse (or read) it and disset its attributes.
+        """
+
         # check if the answer to the current question is in the chat message
         parts = msg_obj.text.split(":")
         if len(parts) > 1:
@@ -703,6 +781,9 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
 
 
     def generate_block_of_text(self, words=30):
+        """Required to prevent Chatango from detecting flooding (repitious messages).
+        """
+
         msg = ""
         for x in xrange(words):
             msg += random.choice(QUIZ_WORDS) + "<br/>"
@@ -781,6 +862,9 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         self.create_planned_timeout(5, self.check_commands)
 
     def on_message(self, header, msg):
+        """Called whenever a message is received from the server.
+        """
+
         if self.headers.has_key(header):
             f = self.headers[header]
             f(msg)
