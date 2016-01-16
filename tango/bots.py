@@ -460,9 +460,9 @@ class TrolltangoWebSocketClient(tango.WebSocketClient):
 
 
 class TrolltangoCommandoClient(tango.WebSocketClient):
-    """An example Chatango Bot built on-top of the existing TrolltangoWebSocketClient bot class.
+    """An example Chatango Bot built on-top of the tango.WebSocketClient base class.
 
-    Behavior: This bot allows anyone in the Chatango chat room (website) to issue it unique commands.
+    Behavior: This bot allows anyone in the Chatango chat room (website) to issue it commands.
     """
 
     def __init__(self):
