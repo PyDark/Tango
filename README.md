@@ -6,6 +6,12 @@
 
 ### Installation
 
+**New fast way:**
+
+pip install Tango-Chatango
+
+**Old manual way:**
+
 1. Install Python 2.7.x
 2. Install requests via 'pip install requests'
 3. Install tornado (web framework) via 'pip install tornado'
