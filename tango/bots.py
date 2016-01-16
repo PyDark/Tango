@@ -530,6 +530,8 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         self.person_imitating = None
         # last message received from a user we are imitating
         self.last_message = None
+        # should the bot ignore messages sent by itself? (prevents bot from reading messages it sends out / prevents incursion)
+        self.ignore_itself = True
 
     def get_random_channel(self):
         """Return a random channel to send our chat message.
@@ -745,11 +747,19 @@ class TrolltangoCommandoClient(tango.WebSocketClient):
         msg_obj = tango.Message()
         msg_obj.parse(remove_tags(msg))
         # don't read (parse) messages sent by the bot
-        if msg_obj.valid:# and msg_obj.username != self.account.sid:
-            if self.person_imitating:
-                if msg_obj.username == self.person_imitating:
-                    self.last_message = msg_obj
-            self.parse_message(msg_obj)
+        if self.ignore_itself:
+            if msg_obj.valid and msg_obj.username != self.account.sid:
+                if self.person_imitating:
+                    if msg_obj.username == self.person_imitating:
+                        self.last_message = msg_obj
+                self.parse_message(msg_obj)
+        # read (parse) all messages, even those sent by this bot
+        else:
+            if msg_obj.valid:
+                if self.person_imitating:
+                    if msg_obj.username == self.person_imitating:
+                        self.last_message = msg_obj
+                self.parse_message(msg_obj)
         print msg_obj
 
     def parse_message(self, msg_obj):
